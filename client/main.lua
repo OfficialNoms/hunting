@@ -1,4 +1,3 @@
-
 ESX                             = nil
 
 Citizen.CreateThread(function()
@@ -57,11 +56,12 @@ exports['bt-target']:AddTargetModel(animal, {
 	options = {
 		{
 			event = "hunting:butcherCreature",
-			icon = "fas fa-cut",
-			label = "Butcher Creature",
+			icon = "fa-solid fa-steak",
+			label = "Harvest Carcass",
+			item_required = "WEAPON_KNIFE",
 		},
 	},
-	job = {"all"},
+	job = {["all"] = {grade = 0}},
 	distance = 3.5
 })
 
@@ -84,7 +84,7 @@ exports['bt-target']:AddBoxZone("Paleto hunting-seller", vector3(-70.23, 6256.43
 	label = "Sell your Leathers.",
 	},
 },
-	job = {"all"},
+	job = {["all"] = {grade = 0}},
 	distance = 2.5
 })
  --`a_c_cow`,`a_c_deer`,`a_c_boar`,`a_c_coyote`,`a_c_mtlion`,`a_c_pig`,`a_c_rabbit_01`,`a_c_rat`,`a_c_cat`,`a_c_chickenhawk`,`a_c_chimp`,`a_c_chop`,`a_c_cormorant`,`a_c_crow`,`a_c_dolphin`,`a_c_fish`,`a_c_hen`,`a_c_humpback`,`a_c_husky`,`a_c_killerwhale`,`a_c_pigeon`,`a_c_poodle`,`a_c_pug`,`a_c_retriever`,`a_c_rhesus`,`a_c_rottweiler`,`a_c_seagull`,`a_c_sharkhammer`,`a_c_sharktiger`,`a_c_shepherd`,`a_c_stingray`,`a_c_westy` <- all model hashes, If needbe you can probably attach these their own events, messy but workable.
@@ -94,26 +94,33 @@ AddEventHandler("hunting:butcherCreature", function()
 	local dead = false
 	local plyCoords = GetEntityCoords(PlayerPedId())
 	local closestAnimal, closestDistance = ESX.Game.GetClosestPed(plyCoords)
+	TriggerServerEvent('hunting:registerStateBag',NetworkGetNetworkIdFromEntity(closestAnimal))
 	local animal = `a_c_cow`,`a_c_deer`,`a_c_boar`,`a_c_coyote`,`a_c_mtlion`,`a_c_pig`,`a_c_rabbit_01`,`a_c_rat`,`a_c_cat`,`a_c_chickenhawk`,`a_c_chimp`,`a_c_chop`,`a_c_cormorant`,`a_c_crow`,`a_c_dolphin`,`a_c_fish`,`a_c_hen`,`a_c_humpback`,`a_c_husky`,`a_c_killerwhale`,`a_c_pigeon`,`a_c_poodle`,`a_c_pug`,`a_c_retriever`,`a_c_rhesus`,`a_c_rottweiler`,`a_c_seagull`,`a_c_sharkhammer`,`a_c_sharktiger`,`a_c_shepherd`,`a_c_stingray`,`a_c_westy` --dunno why but this seems to make it all work?
 	if closestAnimal ~= -1 and closestDistance <= 3.0 then
-		if GetPedType(closestAnimal) == 28 and GetEntityHealth(closestAnimal) == 0 and GetPedSourceOfDeath(closestAnimal) == PlayerPedId() then
+		if GetPedType(closestAnimal) == 28 and GetEntityHealth(closestAnimal) == 0 and not Entity(closestAnimal).state.skinning == true  then
 			dead = true
+			local attempt = 0
 			while not NetworkHasControlOfEntity(closestAnimal) and attempt < 10 and DoesEntityExist(closestAnimal) do -- Network handling contributed via thelindat
 				Citizen.Wait(100)
 				NetworkRequestControlOfEntity(closestAnimal)
 				attempt = attempt + 1
 			end
-			 if GetSelectedPedWeapon(PlayerPedId()) == GetHashKey('WEAPON_KNIFE') then
-				if DoesEntityExist(closestAnimal) and NetworkHasControlOfEntity(closestAnimal) then
-					local netid = NetworkGetNetworkIdFromEntity(closestAnimal)
-					SetNetworkIdCanMigrate(netid, false)
+			local netid = NetworkGetNetworkIdFromEntity(closestAnimal)
+			if GetSelectedPedWeapon(PlayerPedId()) == GetHashKey('WEAPON_KNIFE') then
+				if DoesEntityExist(closestAnimal) and NetworkHasControlOfNetworkId(netid) then
+					local ent = Entity(NetworkGetEntityFromNetworkId(netid))
+					ent.state:set('skinning',true,true)
 					--print(netid)
 					-- harvest this sonofa thnx thelindat
+					local animalHash = GetEntityModel(closestAnimal)
+					local animalWeight = math.random(Config.Animals[animalHash].minWeight,Config.Animals[animalHash].maxWeight)
+					local skinTime = Config.HarvestTime + animalWeight 
 					TaskPlayAnim(PlayerPedId(), "amb@medic@standing@kneel@base" ,"base" ,8.0, -8.0, -1, 1, 0, false, false, false )
+					Citizen.Wait(500)
 					TriggerEvent("mythic_progbar:client:progress", { -- MUCHO IMPORTANTE FOR THE TARGETING SYSTEM TO PREVENT TRIGGER SPAM DO NOT REMOVE UNLESS YOU ARE TRYINNA PATCH THAT ISH YOURSELF
 						name = "skinning",
-						duration = 7500,
-						label = "Skinning Animal",
+						duration = skinTime,
+						label = "Harvesting Carcass",
 						useWhileDead = false,
 						canCancel = true,
 						controlDisables = {
@@ -124,17 +131,17 @@ AddEventHandler("hunting:butcherCreature", function()
 						},
 						animation = {
 							animDict = "anim@gangops@facility@servers@bodysearch@",
-							anim = "player_search"
+							anim = "player_search",
+							flags = 49,
 						},
 					}, function(status)
 						if not status then
 							ClearPedTasksImmediately(PlayerPedId())
-							local AnimalWeight = math.random(200) / 10
-							exports['mythic_notify']:SendAlert('inform', 'You have slaughtered an animal yielding a total of ' ..AnimalWeight.. 'kg of meat and leather.', 6500)
+							
 							isButchering = false
-							TriggerServerEvent('hunting:rewardShit', AnimalWeight) -- Thnx Qalle!
+							TriggerServerEvent('hunting:rewardShit', animalWeight,animalHash,closestAnimal) -- Thnx Qalle!
 							Citizen.Wait(150)
-							TriggerServerEvent('hunting:SkinIt')
+							--TriggerServerEvent('hunting:SkinIt')
 							SetEntityAsMissionEntity(closestAnimal, true, true)
 							SetEntityAsNoLongerNeeded(closestAnimal)
 							DeleteEntity(closestAnimal)
@@ -143,13 +150,15 @@ AddEventHandler("hunting:butcherCreature", function()
 									exports['utk_stress']:AddStress('instant', 10000)
 								end
 							end
+						else 
+							ent.state:set('skinning',false,true)
 						end
 					end)
 				end
 			 else
 			 	exports['mythic_notify']:SendAlert('inform', 'This is the wrong tool for that activity, use a knife.', 3000)
 			 end
-		elseif dead == false or GetPedCauseOfDeath(closestAnimal) ~= PlayerPedId() or netid == nil then
+		elseif dead == false or netid == nil then
 			exports['mythic_notify']:SendAlert('inform', 'This animal is not dead or this is not your kill.', 3000)
 			dead = false
 		end
@@ -251,7 +260,7 @@ exports['bt-target']:AddTargetModel(model, {
 			label = "Sell Leathers",
 		},
 	},
-	job = {"all"},
+	job = {["all"] = {grade = 0}},
 	distance = 3.0
 })
 
@@ -262,7 +271,7 @@ AddEventHandler('hunting:SellLeather', function()
 	if #(coords - seller) < 5 then -- if you trust your clients you can remove this.
 		TriggerServerEvent('hunting:sellLeather')
 	else
-		exports['mythic_notify']:SendAlert('inform', 'No.') -- if your mythic_notify does not have the SendAlert export, replace with any of the others i.e DoShortHudText, DoLongHudText, etc.
+		exports['mythic_notify']:SendAlert('inform', 'No.') -- if your notify does not have the SendAlert export, replace with any of the others i.e DoShortHudText, DoLongHudText, etc.
 	end
 end)
 

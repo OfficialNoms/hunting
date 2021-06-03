@@ -1,6 +1,6 @@
 fx_version "bodacious"
 
-author "Rio358, thelindat, DRKM43"
+author "Rio358, thelindat, DRKM43, noms"
 description "Hunting activity independant of any outside influence, see animal, murder animal, profit."
 version "1.0.0.3"
 
@@ -20,5 +20,8 @@ server_scripts {
 
 client_scripts {
   'client/main.lua',
-  'client/config.lua'
+}
+
+shared_scripts { 
+  'config.lua',
 }
