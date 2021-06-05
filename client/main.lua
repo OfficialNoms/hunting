@@ -1,20 +1,4 @@
-ESX                             = nil
-
-Citizen.CreateThread(function()
-	while ESX == nil do
-		TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
-		Citizen.Wait(0)
-	end
-    while ESX.GetPlayerData().job == nil do
-        Citizen.Wait(10)
-    end
-	PlayerData = ESX.GetPlayerData()
-end)
-
-RegisterNetEvent('esx:playerLoaded')
-AddEventHandler('esx:playerLoaded', function(xPlayer)
-	PlayerData = xPlayer
-end)
+ESX = exports['es_extended']:getSharedObject()
 
 local animal = {
 	`a_c_deer`,
@@ -106,10 +90,10 @@ AddEventHandler("hunting:butcherCreature", function()
 				attempt = attempt + 1
 			end
 			local netid = NetworkGetNetworkIdFromEntity(closestAnimal)
-			if GetSelectedPedWeapon(PlayerPedId()) == GetHashKey('WEAPON_KNIFE') then
+			if GetSelectedPedWeapon(PlayerPedId()) == `WEAPON_KNIFE` then
 				if DoesEntityExist(closestAnimal) and NetworkHasControlOfNetworkId(netid) then
 					local ent = Entity(NetworkGetEntityFromNetworkId(netid))
-					ent.state:set('skinning',true,true)
+					ent.state:set('skinning', true, true)
 					--print(netid)
 					-- harvest this sonofa thnx thelindat
 					local animalHash = GetEntityModel(closestAnimal)
@@ -139,9 +123,8 @@ AddEventHandler("hunting:butcherCreature", function()
 							ClearPedTasksImmediately(PlayerPedId())
 							
 							isButchering = false
-							TriggerServerEvent('hunting:rewardShit', animalWeight,animalHash,closestAnimal) -- Thnx Qalle!
+							TriggerServerEvent('hunting:rewardShit', animalWeight, animalHash, netid) -- Thnx Qalle!
 							Citizen.Wait(150)
-							--TriggerServerEvent('hunting:SkinIt')
 							SetEntityAsMissionEntity(closestAnimal, true, true)
 							SetEntityAsNoLongerNeeded(closestAnimal)
 							DeleteEntity(closestAnimal)
