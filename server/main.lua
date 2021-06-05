@@ -18,41 +18,22 @@ AddEventHandler('hunting:rewardShit', function(weight,hash,animalid)
     elseif luck >= 55 then grade = 3
     elseif luck >= 35 then grade = 2
     else grade = 1 end 
-
-    --- This entire thing is experimental pending an update to linden_inventory to support drop creation exports, to use it you MUST apply your own changes to support the 'create' type to linden_inv (example in readme)
-    local data = {
-        toinv = 'drop',
-        invid = 'carcass-'..animalid,
-        frominv = 'carcass',
-        toSlot = 1,
-        type = 'create',
-        item = {
-            name = 'meat',
-            slot = 1,
-            weight = Config.MeatWeight,
-            count = meatAmount,
-            metadata = {grade = grade, animal = Config.Animals[hash].ModNam,type = Config.Animals[hash].label.." meat", description="A pile of Grade "..grade.." meat cut from a "..Config.Animals[hash].label.."."},
-            stackable = true,
-            label = 'Raw Meat',
-        }
-    }
-    exports['linden_inventory']:CreateNewDrop(xPlayer, data,'carcass-'..animalid)
-    TriggerClientEvent('mythic_notify:client:SendAlert', xPlayer.source, {type = 'inform', text = 'You have slaughtered an animal yielding a total of ' ..meatAmount.. 'pieces of meat.'})
-    --[[
-    if xPlayer.canCarryItem('meat', meatAmount) then
-        xPlayer.addInventoryItem('meat', meatAmount, )
-    else 
-        TriggerClientEvent('mythic_notify:client:SendAlert', xPlayer.source, {type = 'error', text = 'You can\'t hold this much meat.'})
-    end 
-
-    if usableSkin > 2 then 
-        if xPlayer.canCarryItem('leather', skinAmount) then
-            xPlayer.addInventoryItem('leather', skinAmount, {grade = grade, animal = Config.Animals[hash].ModNam,type = Config.Animals[hash].label.." hide", description="A pile of Grade "..grade.." hide cut from a "..Config.Animals[hash].label.."."})
-        else 
-            TriggerClientEvent('mythic_notify:client:SendAlert', xPlayer.source, {type = 'error', text = 'You can\'t hold this much leather.'})
-        end 
+	
+	local playerCoords = GetEntityCoords(GetPlayerPed(xPlayer.source))
+	local entity = NetworkGetEntityFromNetworkId(animalid)
+	local coords = entity and GetEntityCoords(entity) or playerCoords
+	if #(playerCoords - coords) <= 10 then
+		local data = {
+			type = 'create',
+			label = 'Carcass',
+			coords = vector3(coords.x, coords.y, playerCoords.z),
+			inventory = {
+				[1] = {slot=1, name='meat', count=meatAmount, metadata={grade=grade, animal=Config.Animals[hash].ModNam, type=Config.Animals[hash].label..' meat', description='A cut of '..grade..' grade meat from a '..Config.Animals[hash].label}}
+			}
+		}
+		exports['linden_inventory']:CreateNewDrop(xPlayer, data)
+		TriggerClientEvent('mythic_notify:client:SendAlert', xPlayer.source, {type = 'inform', text = 'You have slaughtered an animal yielding a total of ' ..meatAmount.. 'pieces of meat.'})
     end
-    ]]--
 end)
 
 RegisterServerEvent('hunting:registerStateBag')
